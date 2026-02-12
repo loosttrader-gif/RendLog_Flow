@@ -6,19 +6,23 @@ import RendLogChart from './components/RendLogChart'
 import OrderFlowChart from './components/OrderFlowChart'
 import StatsPanel from './components/StatsPanel'
 
+const TIMEFRAMES = ['1M', '5M', '15M', '30M', '1H', '4H']
+
 export default function DashboardPage() {
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [isConnected, setIsConnected] = useState(false)
+  const [selectedTF, setSelectedTF] = useState('30M')
   const userRef = useRef(null)
 
-  const fetchData = useCallback(async (userId) => {
+  const fetchData = useCallback(async (userId, tf) => {
     const { data: rows, error } = await supabase
       .from('user_data')
       .select('*')
       .eq('user_id', userId)
+      .eq('timeframe', tf)
       .order('data_timestamp', { ascending: false })
       .limit(100)
 
@@ -45,12 +49,12 @@ export default function DashboardPage() {
 
       setUser(user)
       userRef.current = user
-      await fetchData(user.id)
+      await fetchData(user.id, selectedTF)
       setLoading(false)
 
       // Realtime: escuchar INSERT y UPDATE
       channel = supabase
-        .channel('user_data_changes')
+        .channel(`user_data_changes_${selectedTF}`)
         .on(
           'postgres_changes',
           {
@@ -61,7 +65,7 @@ export default function DashboardPage() {
           },
           () => {
             // Re-fetch completo en cualquier cambio
-            fetchData(user.id)
+            fetchData(user.id, selectedTF)
           }
         )
         .subscribe((status) => {
@@ -70,7 +74,7 @@ export default function DashboardPage() {
 
       // Polling cada 30s como respaldo
       pollInterval = setInterval(() => {
-        fetchData(user.id)
+        fetchData(user.id, selectedTF)
       }, 30000)
     }
 
@@ -84,7 +88,7 @@ export default function DashboardPage() {
         clearInterval(pollInterval)
       }
     }
-  }, [router, fetchData])
+  }, [router, fetchData, selectedTF])
 
   if (loading) {
     return (
@@ -107,8 +111,25 @@ export default function DashboardPage() {
           <p className="text-gray-500 mt-1">Datos de trading en tiempo real</p>
         </div>
 
+        {/* Selector de Timeframe */}
+        <div className="flex gap-2 mb-6">
+          {TIMEFRAMES.map((tf) => (
+            <button
+              key={tf}
+              onClick={() => setSelectedTF(tf)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                selectedTF === tf
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              {tf}
+            </button>
+          ))}
+        </div>
+
         <div className="flex flex-col gap-6">
-          <StatsPanel latestData={latestData} isConnected={isConnected} />
+          <StatsPanel latestData={latestData} isConnected={isConnected} selectedTF={selectedTF} />
 
           {data.length === 0 ? (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">

@@ -1,4 +1,4 @@
-# main.py - V2.2 (Sync acumulativo: UPSERT sin borrar datos)
+# main.py - V3.0 (Multi-timeframe: procesa todos los TFs en cada ciclo)
 import MetaTrader5 as mt5
 import time
 import pandas as pd
@@ -7,11 +7,11 @@ from conexion_mt5 import conectar_mt5, obtener_datos_historicos
 from calculos_rendlog import calcular_rendimientos_log, calcular_bandas_sigma, detectar_anomalias
 from calculos_orderflow import calcular_delta_volumen, calcular_volumen_relativo, detectar_anomalia_volumen
 from api_client import SupabaseClient
-from config import DEFAULT_CONFIG, TIMEFRAME_MAP
+from config import DEFAULT_CONFIG, TIMEFRAME_MAP, TIMEFRAMES_ACTIVOS
 from utils import log_mensaje
 
 
-def build_rows(df_slice, config):
+def build_rows(df_slice, config, timeframe_name):
     """Construye lista de dicts para enviar a Supabase."""
     rows = []
     for _, row in df_slice.iterrows():
@@ -26,6 +26,7 @@ def build_rows(df_slice, config):
             senal = "VENTA"
 
         rows.append({
+            "timeframe": timeframe_name,
             "data_timestamp": row['time'].isoformat(),
             "rendlog": {
                 "z_score": z_score,
@@ -51,7 +52,7 @@ def build_rows(df_slice, config):
 
 def main():
     print("="*70)
-    print(" "*15 + "RENDLOG PLATFORM V2.2 - Backend Local")
+    print(" "*15 + "RENDLOG PLATFORM V3.0 - Multi-Timeframe")
     print("="*70)
 
     # Conectar MT5
@@ -79,16 +80,16 @@ def main():
         return
 
     log_mensaje(f"Usuario autenticado: {user_id}", "SUCCESS")
+    log_mensaje(f"Timeframes activos: {', '.join(TIMEFRAMES_ACTIVOS)}", "INFO")
     log_mensaje("", "INFO")
     log_mensaje("Iniciando loop de actualizacion (cada 30s)...", "INFO")
     log_mensaje("   Presiona Ctrl+C para detener", "INFO")
     print("="*70)
 
     ciclo = 0
-    # Primer ciclo envía 100 velas (UPSERT, no borra nada)
     is_first_cycle = True
-    # Timestamp de la última vela enviada (en memoria, misma sesión)
-    last_sent_time = None
+    # Timestamp de la última vela enviada por timeframe
+    last_sent_time = {}
 
     try:
         while True:
@@ -103,79 +104,82 @@ def main():
                 log_mensaje("Usando configuracion por defecto", "WARNING")
                 config = DEFAULT_CONFIG
             else:
-                log_mensaje(f"Config: TF={config['timeframe']}, Umbral={config['umbral_sigma_compra']}s / {config['umbral_sigma_venta']}s", "INFO")
+                log_mensaje(f"Config: Umbral={config['umbral_sigma_compra']}s / {config['umbral_sigma_venta']}s", "INFO")
 
-            # 2. Determinar timeframe en minutos
-            timeframe_minutes = TIMEFRAME_MAP.get(config['timeframe'], 30)
+            # 2. Procesar cada timeframe
+            all_rows = []
+            for tf_name in TIMEFRAMES_ACTIVOS:
+                timeframe_minutes = TIMEFRAME_MAP.get(tf_name, 1)
 
-            # 3. Obtener datos históricos (doble de velas para que rolling() tenga datos suficientes)
-            velas_a_pedir = config['ventana_estadistica'] * 2
-            log_mensaje(f"Obteniendo {velas_a_pedir} velas de {config['timeframe']}...", "INFO")
-            df = obtener_datos_historicos("EURUSD", timeframe_minutes, velas_a_pedir)
+                # Obtener datos históricos
+                velas_a_pedir = config['ventana_estadistica'] * 2
+                log_mensaje(f"[{tf_name}] Obteniendo {velas_a_pedir} velas...", "INFO")
+                df = obtener_datos_historicos("EURUSD", timeframe_minutes, velas_a_pedir)
 
-            if df is None or df.empty:
-                log_mensaje("No se pudieron obtener datos. Reintentando en 30s...", "WARNING")
-                time.sleep(30)
-                continue
+                if df is None or df.empty:
+                    log_mensaje(f"[{tf_name}] No se pudieron obtener datos, saltando...", "WARNING")
+                    continue
 
-            log_mensaje(f"Datos obtenidos: {len(df)} velas", "SUCCESS")
+                # Calcular métricas RendLog
+                df = calcular_rendimientos_log(df)
+                df = calcular_bandas_sigma(df, ventana=config['ventana_estadistica'])
+                señal_rendlog = detectar_anomalias(
+                    df,
+                    config['umbral_sigma_compra'],
+                    config['umbral_sigma_venta']
+                )
 
-            # 4. Calcular métricas RendLog
-            log_mensaje("Calculando RendLog...", "INFO")
-            df = calcular_rendimientos_log(df)
-            df = calcular_bandas_sigma(df, ventana=config['ventana_estadistica'])
-            señal_rendlog = detectar_anomalias(
-                df,
-                config['umbral_sigma_compra'],
-                config['umbral_sigma_venta']
-            )
+                # Calcular métricas Order Flow
+                df = calcular_delta_volumen(df)
+                df = calcular_volumen_relativo(df)
+                df = detectar_anomalia_volumen(df)
 
-            # 5. Calcular métricas Order Flow
-            log_mensaje("Calculando Order Flow...", "INFO")
-            df = calcular_delta_volumen(df)
-            df = calcular_volumen_relativo(df)
-            df = detectar_anomalia_volumen(df)
+                # Preparar filas
+                datos_con_stats = df.dropna(subset=['log_return']).tail(100)
 
-            # 6. Preparar filas para enviar
-            datos_con_stats = df.dropna(subset=['log_return']).tail(100)
+                if is_first_cycle or tf_name not in last_sent_time:
+                    nuevas = datos_con_stats
+                else:
+                    nuevas = datos_con_stats[datos_con_stats['time'] > last_sent_time[tf_name]]
 
-            if is_first_cycle:
-                # Primer ciclo: enviar todas las 100 velas (UPSERT las actualiza si ya existen)
-                nuevas = datos_con_stats
-            elif last_sent_time is not None:
-                # Ciclos siguientes: solo velas nuevas
-                nuevas = datos_con_stats[datos_con_stats['time'] > last_sent_time]
+                if nuevas.empty:
+                    log_mensaje(f"[{tf_name}] Sin velas nuevas", "INFO")
+                    continue
+
+                rows = build_rows(nuevas, config, tf_name)
+                all_rows.extend(rows)
+
+                # Actualizar last_sent_time para este TF
+                last_sent_time[tf_name] = datos_con_stats['time'].iloc[-1]
+
+                log_mensaje(f"[{tf_name}] {len(rows)} filas preparadas", "SUCCESS")
+
+                # Mostrar señal si existe
+                if señal_rendlog.get('señal'):
+                    print(f"\n{'='*70}")
+                    print(f"  [{tf_name}] SENAL DETECTADA: {señal_rendlog['señal']}")
+                    print(f"{'='*70}")
+                    print(f"   Z-score: {señal_rendlog['z_score']:.3f}s")
+                    print(f"   Mensaje: {señal_rendlog['mensaje']}")
+                    print(f"   Timestamp: {señal_rendlog['timestamp']}")
+                    print(f"{'='*70}\n")
+
+            # 3. Enviar batch completo a Supabase
+            if all_rows:
+                modo = f"UPSERT {len(all_rows)} filas ({len(TIMEFRAMES_ACTIVOS)} TFs)"
+                if is_first_cycle:
+                    modo = f"UPSERT inicial {len(all_rows)} filas ({len(TIMEFRAMES_ACTIVOS)} TFs)"
+                log_mensaje(f"Enviando [{modo}]...", "INFO")
+
+                if supabase.enviar_datos(all_rows):
+                    log_mensaje("Datos sincronizados correctamente", "SUCCESS")
+                    is_first_cycle = False
+                else:
+                    log_mensaje("Error sincronizando datos", "ERROR")
             else:
-                nuevas = datos_con_stats
+                log_mensaje("Sin datos nuevos en ningun timeframe", "INFO")
 
-            if nuevas.empty:
-                log_mensaje("Sin velas nuevas, esperando...", "INFO")
-                time.sleep(30)
-                continue
-
-            rows = build_rows(nuevas, config)
-
-            # 7. Enviar a Supabase (siempre UPSERT, nunca DELETE)
-            modo = "UPSERT 100 velas" if is_first_cycle else f"UPSERT +{len(rows)} nuevas"
-            log_mensaje(f"Enviando {len(rows)} filas [{modo}]...", "INFO")
-            if supabase.enviar_datos(rows):
-                log_mensaje("Datos sincronizados correctamente", "SUCCESS")
-                last_sent_time = datos_con_stats['time'].iloc[-1]
-                is_first_cycle = False
-            else:
-                log_mensaje("Error sincronizando datos", "ERROR")
-
-            # 8. Mostrar señal si existe
-            if señal_rendlog.get('señal'):
-                print(f"\n{'='*70}")
-                print(f"  SENAL DETECTADA: {señal_rendlog['señal']}")
-                print(f"{'='*70}")
-                print(f"   Z-score: {señal_rendlog['z_score']:.3f}s")
-                print(f"   Mensaje: {señal_rendlog['mensaje']}")
-                print(f"   Timestamp: {señal_rendlog['timestamp']}")
-                print(f"{'='*70}\n")
-
-            # 9. Esperar 30s
+            # 4. Esperar 30s
             log_mensaje("Esperando 30s para proximo ciclo...\n", "INFO")
             time.sleep(30)
 
