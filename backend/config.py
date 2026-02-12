@@ -25,7 +25,7 @@ SYMBOL = "EURUSD"
 # ============================================================
 # Se sobrescribe con datos de Supabase si el usuario tiene config personalizada
 DEFAULT_CONFIG = {
-    "timeframe": "30M",
+    "timeframe": "1M",
     "timezone": "America/New_York",
     "umbral_sigma_compra": -2.0,
     "umbral_sigma_venta": 2.0,
@@ -37,6 +37,8 @@ DEFAULT_CONFIG = {
 # MAPEO DE TIMEFRAMES
 # ============================================================
 TIMEFRAME_MAP = {
+    "1M": 1,    # mt5.TIMEFRAME_M1
+    "5M": 5,    # mt5.TIMEFRAME_M5
     "15M": 15,  # mt5.TIMEFRAME_M15
     "30M": 30,  # mt5.TIMEFRAME_M30
     "1H": 60,   # mt5.TIMEFRAME_H1

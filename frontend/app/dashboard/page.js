@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 import RendLogChart from './components/RendLogChart'
@@ -12,13 +12,14 @@ export default function DashboardPage() {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [isConnected, setIsConnected] = useState(false)
+  const userRef = useRef(null)
 
   const fetchData = useCallback(async (userId) => {
     const { data: rows, error } = await supabase
       .from('user_data')
       .select('*')
       .eq('user_id', userId)
-      .order('data_timestamp', { ascending: true })
+      .order('data_timestamp', { ascending: false })
       .limit(100)
 
     if (error) {
@@ -26,14 +27,13 @@ export default function DashboardPage() {
       return
     }
 
-    console.log('Rows recibidos:', rows?.length, rows?.[0])
-    if (error) console.error('Supabase error:', JSON.stringify(error))
-    console.log('User ID usado:', userId)
-    setData(rows || [])
+    // Reverse para que queden en orden cronológico (oldest → newest)
+    setData((rows || []).reverse())
   }, [])
 
   useEffect(() => {
     let channel = null
+    let pollInterval = null
 
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -44,34 +44,34 @@ export default function DashboardPage() {
       }
 
       setUser(user)
+      userRef.current = user
       await fetchData(user.id)
       setLoading(false)
 
-      // Supabase Realtime subscription
+      // Realtime: escuchar INSERT y UPDATE
       channel = supabase
         .channel('user_data_changes')
         .on(
           'postgres_changes',
           {
-            event: 'INSERT',
+            event: '*',
             schema: 'public',
             table: 'user_data',
             filter: `user_id=eq.${user.id}`,
           },
-          (payload) => {
-            setData((prev) => {
-              const updated = [...prev, payload.new]
-              // Keep only last 100
-              if (updated.length > 100) {
-                return updated.slice(updated.length - 100)
-              }
-              return updated
-            })
+          () => {
+            // Re-fetch completo en cualquier cambio
+            fetchData(user.id)
           }
         )
         .subscribe((status) => {
           setIsConnected(status === 'SUBSCRIBED')
         })
+
+      // Polling cada 30s como respaldo
+      pollInterval = setInterval(() => {
+        fetchData(user.id)
+      }, 30000)
     }
 
     init()
@@ -79,6 +79,9 @@ export default function DashboardPage() {
     return () => {
       if (channel) {
         supabase.removeChannel(channel)
+      }
+      if (pollInterval) {
+        clearInterval(pollInterval)
       }
     }
   }, [router, fetchData])
