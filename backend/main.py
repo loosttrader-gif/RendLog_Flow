@@ -1,14 +1,27 @@
-# main.py - V2.0 (Integración con Supabase)
+# main.py - V2.1 (Envío acumulativo a Supabase)
 import MetaTrader5 as mt5
 import time
+import json
 import pandas as pd
 from datetime import datetime
+from pathlib import Path
 from conexion_mt5 import conectar_mt5, obtener_datos_historicos
 from calculos_rendlog import calcular_rendimientos_log, calcular_bandas_sigma, detectar_anomalias
 from calculos_orderflow import calcular_delta_volumen, calcular_volumen_relativo, detectar_anomalia_volumen
 from api_client import SupabaseClient
 from config import DEFAULT_CONFIG, TIMEFRAME_MAP
 from utils import log_mensaje
+
+CACHE_FILE = Path("last_sync.json")
+
+def get_last_sync_time():
+    if CACHE_FILE.exists():
+        data = json.loads(CACHE_FILE.read_text())
+        return data.get('last_timestamp')
+    return None
+
+def save_last_sync_time(timestamp):
+    CACHE_FILE.write_text(json.dumps({'last_timestamp': str(timestamp)}))
 
 def main():
     print("="*70)
@@ -46,6 +59,13 @@ def main():
     print("="*70)
 
     ciclo = 0
+    last_sync = get_last_sync_time()
+    is_first_sync = last_sync is None
+
+    if is_first_sync:
+        log_mensaje("Primera ejecución: se enviarán 100 velas iniciales", "INFO")
+    else:
+        log_mensaje(f"Último sync: {last_sync}", "INFO")
 
     try:
         while True:
@@ -65,9 +85,10 @@ def main():
             # 2. Determinar timeframe en minutos
             timeframe_minutes = TIMEFRAME_MAP.get(config['timeframe'], 30)
 
-            # 3. Obtener datos históricos
-            log_mensaje(f"Obteniendo {config['ventana_estadistica']} velas de {config['timeframe']}...", "INFO")
-            df = obtener_datos_historicos("EURUSD", timeframe_minutes, config['ventana_estadistica'])
+            # 3. Obtener datos históricos (doble de velas para que rolling() tenga datos suficientes)
+            velas_a_pedir = config['ventana_estadistica'] * 2
+            log_mensaje(f"Obteniendo {velas_a_pedir} velas de {config['timeframe']}...", "INFO")
+            df = obtener_datos_historicos("EURUSD", timeframe_minutes, velas_a_pedir)
 
             if df is None or df.empty:
                 log_mensaje("No se pudieron obtener datos. Reintentando en 30s...", "WARNING")
@@ -92,11 +113,23 @@ def main():
             df = calcular_volumen_relativo(df)
             df = detectar_anomalia_volumen(df)
 
-            # 6. Preparar las 100 filas para enviar
-            datos_ultimas = df.dropna(subset=['log_return']).tail(100)
-            rows = []
+            # 6. Preparar filas para enviar
+            datos_con_stats = df.dropna(subset=['log_return']).tail(100)
 
-            for _, row in datos_ultimas.iterrows():
+            # Filtrar solo velas nuevas (después del último sync)
+            if not is_first_sync and last_sync:
+                last_sync_dt = pd.Timestamp(last_sync)
+                nuevas = datos_con_stats[datos_con_stats['time'] > last_sync_dt]
+            else:
+                nuevas = datos_con_stats
+
+            if nuevas.empty:
+                log_mensaje("Sin velas nuevas, esperando...", "INFO")
+                time.sleep(30)
+                continue
+
+            rows = []
+            for _, row in nuevas.iterrows():
                 # Z-score individual por fila
                 z_score = 0.0
                 if not pd.isna(row.get('std', None)) and row['std'] > 0:
@@ -132,9 +165,14 @@ def main():
                 })
 
             # 7. Enviar a Supabase
-            log_mensaje(f"Enviando {len(rows)} filas a Supabase...", "INFO")
-            if supabase.enviar_datos(rows):
+            modo = "INICIAL (DELETE+INSERT)" if is_first_sync else "INCREMENTAL (INSERT)"
+            log_mensaje(f"Enviando {len(rows)} filas [{modo}]...", "INFO")
+            if supabase.enviar_datos(rows, is_first_sync=is_first_sync):
                 log_mensaje("Datos sincronizados correctamente", "SUCCESS")
+                # Guardar timestamp de la última vela enviada
+                last_sync = rows[-1]['data_timestamp']
+                save_last_sync_time(last_sync)
+                is_first_sync = False
             else:
                 log_mensaje("Error sincronizando datos", "ERROR")
 
