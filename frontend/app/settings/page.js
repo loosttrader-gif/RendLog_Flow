@@ -104,12 +104,12 @@ export default function SettingsPage() {
                       <div className="flex-1">
                         <p className="font-semibold mb-1">Descargar Backend</p>
                         <a
-                          href="https://github.com/loostrader-gif/RendLog_Flow"
+                          href="https://github.com/loosttrader-gif/RendLog_Flow"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-primary hover:underline"
                         >
-                          https://github.com/loostrader-gif/RendLog_Flow
+                          https://github.com/loosttrader-gif/RendLog_Flow
                         </a>
                       </div>
                     </div>
