@@ -10,7 +10,15 @@ class SupabaseClient:
         self.anon_key = SUPABASE_ANON_KEY
         self.api_key = API_KEY
 
-        self.headers = {
+        # Headers para llamadas RPC (con ANON_KEY)
+        self.headers_rpc = {
+            "apikey": self.anon_key,
+            "Authorization": f"Bearer {self.anon_key}",
+            "Content-Type": "application/json"
+        }
+
+        # Headers para operaciones de datos (con API_KEY)
+        self.headers_data = {
             "apikey": self.api_key,
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
@@ -31,7 +39,7 @@ class SupabaseClient:
         payload = {"api_key_param": self.api_key}
 
         try:
-            response = requests.post(url, json=payload, headers=self.headers)
+            response = requests.post(url, json=payload, headers=self.headers_rpc)
 
             if response.status_code == 200:
                 user_id = response.json()
@@ -62,7 +70,7 @@ class SupabaseClient:
         url = f"{self.supabase_url}/rest/v1/user_config?user_id=eq.{user_id}"
 
         try:
-            response = requests.get(url, headers=self.headers)
+            response = requests.get(url, headers=self.headers_data)
 
             if response.status_code == 200:
                 data = response.json()
@@ -106,7 +114,7 @@ class SupabaseClient:
         }
 
         try:
-            response = requests.post(url, json=payload, headers=self.headers)
+            response = requests.post(url, json=payload, headers=self.headers_data)
 
             if response.status_code == 201:
                 return True
