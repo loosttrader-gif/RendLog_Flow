@@ -92,41 +92,48 @@ def main():
             df = calcular_volumen_relativo(df)
             df = detectar_anomalia_volumen(df)
 
-            # 6. Preparar datos para enviar (últimas 100 velas)
-            datos_ultimas_100 = df.tail(100)
+            # 6. Preparar las 100 filas para enviar
+            datos_ultimas = df.dropna(subset=['log_return']).tail(100)
+            rows = []
 
-            rendlog_data = {
-                "log_returns": datos_ultimas_100[['time', 'log_return', 'media',
-                                                   'banda_2sigma_superior', 'banda_2sigma_inferior',
-                                                   'banda_3sigma_superior', 'banda_3sigma_inferior']].apply(
-                    lambda row: {
-                        'time': row['time'].isoformat(),
-                        'value': float(row['log_return']) if not pd.isna(row['log_return']) else 0,
-                        'media': float(row['media']) if not pd.isna(row['media']) else 0,
-                        'banda_2sigma_sup': float(row['banda_2sigma_superior']) if not pd.isna(row['banda_2sigma_superior']) else 0,
-                        'banda_2sigma_inf': float(row['banda_2sigma_inferior']) if not pd.isna(row['banda_2sigma_inferior']) else 0,
-                        'banda_3sigma_sup': float(row['banda_3sigma_superior']) if not pd.isna(row['banda_3sigma_superior']) else 0,
-                        'banda_3sigma_inf': float(row['banda_3sigma_inferior']) if not pd.isna(row['banda_3sigma_inferior']) else 0
-                    }, axis=1
-                ).tolist(),
-                "ultima_senal": {
-                    "tipo": señal_rendlog.get('señal'),
-                    "z_score": señal_rendlog.get('z_score'),
-                    "mensaje": señal_rendlog.get('mensaje'),
-                    "timestamp": señal_rendlog.get('timestamp').isoformat() if señal_rendlog.get('timestamp') else None
-                }
-            }
+            for _, row in datos_ultimas.iterrows():
+                # Z-score individual por fila
+                z_score = 0.0
+                if not pd.isna(row.get('std', None)) and row['std'] > 0:
+                    z_score = float((row['log_return'] - row['media']) / row['std'])
 
-            orderflow_data = {
-                "delta": float(df['delta'].iloc[-1]),
-                "volumen_relativo": float(df['volumen_relativo'].iloc[-1]),
-                "anomalia_vol": bool(df['anomalia_volumen'].iloc[-1]),
-                "z_score_vol": float(df['z_score_volumen'].iloc[-1])
-            }
+                # Señal individual
+                senal = None
+                if z_score < config.get('umbral_sigma_compra', -2.0):
+                    senal = "COMPRA"
+                elif z_score > config.get('umbral_sigma_venta', 2.0):
+                    senal = "VENTA"
+
+                rows.append({
+                    "data_timestamp": row['time'].isoformat(),
+                    "rendlog": {
+                        "z_score": z_score,
+                        "senal": senal,
+                        "log_return": float(row['log_return']) if not pd.isna(row['log_return']) else 0,
+                        "media": float(row['media']) if not pd.isna(row['media']) else 0,
+                        "std": float(row['std']) if not pd.isna(row['std']) else 0,
+                        "banda_2sigma_superior": float(row['banda_2sigma_superior']) if not pd.isna(row['banda_2sigma_superior']) else 0,
+                        "banda_2sigma_inferior": float(row['banda_2sigma_inferior']) if not pd.isna(row['banda_2sigma_inferior']) else 0,
+                        "banda_3sigma_superior": float(row['banda_3sigma_superior']) if not pd.isna(row['banda_3sigma_superior']) else 0,
+                        "banda_3sigma_inferior": float(row['banda_3sigma_inferior']) if not pd.isna(row['banda_3sigma_inferior']) else 0
+                    },
+                    "orderflow": {
+                        "delta": float(row['delta']) if not pd.isna(row.get('delta', None)) else 0,
+                        "vol_relativo": float(row['volumen_relativo']) if not pd.isna(row.get('volumen_relativo', None)) else 1.0,
+                        "anomalia_vol": bool(row['anomalia_volumen']) if not pd.isna(row.get('anomalia_volumen', None)) else False,
+                        "z_score_vol": float(row['z_score_volumen']) if not pd.isna(row.get('z_score_volumen', None)) else 0,
+                        "tick_volume": int(row['tick_volume']) if not pd.isna(row.get('tick_volume', None)) else 0
+                    }
+                })
 
             # 7. Enviar a Supabase
-            log_mensaje("Enviando datos a Supabase...", "INFO")
-            if supabase.enviar_datos(rendlog_data, orderflow_data):
+            log_mensaje(f"Enviando {len(rows)} filas a Supabase...", "INFO")
+            if supabase.enviar_datos(rows):
                 log_mensaje("Datos sincronizados correctamente", "SUCCESS")
             else:
                 log_mensaje("Error sincronizando datos", "ERROR")
