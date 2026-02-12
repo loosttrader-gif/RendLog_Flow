@@ -1,10 +1,8 @@
-# main.py - V2.1 (Envío acumulativo a Supabase)
+# main.py - V2.2 (Sync acumulativo: UPSERT sin borrar datos)
 import MetaTrader5 as mt5
 import time
-import json
 import pandas as pd
 from datetime import datetime
-from pathlib import Path
 from conexion_mt5 import conectar_mt5, obtener_datos_historicos
 from calculos_rendlog import calcular_rendimientos_log, calcular_bandas_sigma, detectar_anomalias
 from calculos_orderflow import calcular_delta_volumen, calcular_volumen_relativo, detectar_anomalia_volumen
@@ -12,20 +10,48 @@ from api_client import SupabaseClient
 from config import DEFAULT_CONFIG, TIMEFRAME_MAP
 from utils import log_mensaje
 
-CACHE_FILE = Path("last_sync.json")
 
-def get_last_sync_time():
-    if CACHE_FILE.exists():
-        data = json.loads(CACHE_FILE.read_text())
-        return data.get('last_timestamp')
-    return None
+def build_rows(df_slice, config):
+    """Construye lista de dicts para enviar a Supabase."""
+    rows = []
+    for _, row in df_slice.iterrows():
+        z_score = 0.0
+        if not pd.isna(row.get('std', None)) and row['std'] > 0:
+            z_score = float((row['log_return'] - row['media']) / row['std'])
 
-def save_last_sync_time(timestamp):
-    CACHE_FILE.write_text(json.dumps({'last_timestamp': str(timestamp)}))
+        senal = None
+        if z_score < config.get('umbral_sigma_compra', -2.0):
+            senal = "COMPRA"
+        elif z_score > config.get('umbral_sigma_venta', 2.0):
+            senal = "VENTA"
+
+        rows.append({
+            "data_timestamp": row['time'].isoformat(),
+            "rendlog": {
+                "z_score": z_score,
+                "senal": senal,
+                "log_return": float(row['log_return']) if not pd.isna(row['log_return']) else 0,
+                "media": float(row['media']) if not pd.isna(row['media']) else 0,
+                "std": float(row['std']) if not pd.isna(row['std']) else 0,
+                "banda_2sigma_superior": float(row['banda_2sigma_superior']) if not pd.isna(row['banda_2sigma_superior']) else 0,
+                "banda_2sigma_inferior": float(row['banda_2sigma_inferior']) if not pd.isna(row['banda_2sigma_inferior']) else 0,
+                "banda_3sigma_superior": float(row['banda_3sigma_superior']) if not pd.isna(row['banda_3sigma_superior']) else 0,
+                "banda_3sigma_inferior": float(row['banda_3sigma_inferior']) if not pd.isna(row['banda_3sigma_inferior']) else 0
+            },
+            "orderflow": {
+                "delta": int(row['delta']) if not pd.isna(row.get('delta', None)) else 0,
+                "vol_relativo": float(row['volumen_relativo']) if not pd.isna(row.get('volumen_relativo', None)) else 1.0,
+                "anomalia_vol": bool(row['anomalia_volumen']) if not pd.isna(row.get('anomalia_volumen', None)) else False,
+                "z_score_vol": float(row['z_score_volumen']) if not pd.isna(row.get('z_score_volumen', None)) else 0,
+                "tick_volume": int(row['tick_volume']) if not pd.isna(row.get('tick_volume', None)) else 0
+            }
+        })
+    return rows
+
 
 def main():
     print("="*70)
-    print(" "*15 + "RENDLOG PLATFORM V2.0 - Backend Local")
+    print(" "*15 + "RENDLOG PLATFORM V2.2 - Backend Local")
     print("="*70)
 
     # Conectar MT5
@@ -42,10 +68,10 @@ def main():
     user_id = supabase.obtener_user_id()
     if not user_id:
         log_mensaje("", "ERROR")
-        log_mensaje("API_KEY no configurada o inválida en archivo .env", "ERROR")
+        log_mensaje("API_KEY no configurada o invalida en archivo .env", "ERROR")
         log_mensaje("", "INFO")
         log_mensaje("INSTRUCCIONES:", "INFO")
-        log_mensaje("1. Regístrate en el frontend web para obtener tu API_KEY", "INFO")
+        log_mensaje("1. Registrate en el frontend web para obtener tu API_KEY", "INFO")
         log_mensaje("2. Copia el API_KEY en el archivo .env", "INFO")
         log_mensaje("3. Reinicia este backend", "INFO")
         log_mensaje("", "INFO")
@@ -54,18 +80,15 @@ def main():
 
     log_mensaje(f"Usuario autenticado: {user_id}", "SUCCESS")
     log_mensaje("", "INFO")
-    log_mensaje("🔄 Iniciando loop de actualización (cada 30s)...", "INFO")
+    log_mensaje("Iniciando loop de actualizacion (cada 30s)...", "INFO")
     log_mensaje("   Presiona Ctrl+C para detener", "INFO")
     print("="*70)
 
     ciclo = 0
-    last_sync = get_last_sync_time()
-    is_first_sync = last_sync is None
-
-    if is_first_sync:
-        log_mensaje("Primera ejecución: se enviarán 100 velas iniciales", "INFO")
-    else:
-        log_mensaje(f"Último sync: {last_sync}", "INFO")
+    # Primer ciclo envía 100 velas (UPSERT, no borra nada)
+    is_first_cycle = True
+    # Timestamp de la última vela enviada (en memoria, misma sesión)
+    last_sent_time = None
 
     try:
         while True:
@@ -77,10 +100,10 @@ def main():
             # 1. Obtener configuración actualizada desde Supabase
             config = supabase.obtener_configuracion()
             if not config:
-                log_mensaje("Usando configuración por defecto", "WARNING")
+                log_mensaje("Usando configuracion por defecto", "WARNING")
                 config = DEFAULT_CONFIG
             else:
-                log_mensaje(f"Config: TF={config['timeframe']}, Umbral={config['umbral_sigma_compra']}σ / {config['umbral_sigma_venta']}σ", "INFO")
+                log_mensaje(f"Config: TF={config['timeframe']}, Umbral={config['umbral_sigma_compra']}s / {config['umbral_sigma_venta']}s", "INFO")
 
             # 2. Determinar timeframe en minutos
             timeframe_minutes = TIMEFRAME_MAP.get(config['timeframe'], 30)
@@ -116,10 +139,12 @@ def main():
             # 6. Preparar filas para enviar
             datos_con_stats = df.dropna(subset=['log_return']).tail(100)
 
-            # Filtrar solo velas nuevas (después del último sync)
-            if not is_first_sync and last_sync:
-                last_sync_dt = pd.Timestamp(last_sync)
-                nuevas = datos_con_stats[datos_con_stats['time'] > last_sync_dt]
+            if is_first_cycle:
+                # Primer ciclo: enviar todas las 100 velas (UPSERT las actualiza si ya existen)
+                nuevas = datos_con_stats
+            elif last_sent_time is not None:
+                # Ciclos siguientes: solo velas nuevas
+                nuevas = datos_con_stats[datos_con_stats['time'] > last_sent_time]
             else:
                 nuevas = datos_con_stats
 
@@ -128,71 +153,35 @@ def main():
                 time.sleep(30)
                 continue
 
-            rows = []
-            for _, row in nuevas.iterrows():
-                # Z-score individual por fila
-                z_score = 0.0
-                if not pd.isna(row.get('std', None)) and row['std'] > 0:
-                    z_score = float((row['log_return'] - row['media']) / row['std'])
+            rows = build_rows(nuevas, config)
 
-                # Señal individual
-                senal = None
-                if z_score < config.get('umbral_sigma_compra', -2.0):
-                    senal = "COMPRA"
-                elif z_score > config.get('umbral_sigma_venta', 2.0):
-                    senal = "VENTA"
-
-                rows.append({
-                    "data_timestamp": row['time'].isoformat(),
-                    "rendlog": {
-                        "z_score": z_score,
-                        "senal": senal,
-                        "log_return": float(row['log_return']) if not pd.isna(row['log_return']) else 0,
-                        "media": float(row['media']) if not pd.isna(row['media']) else 0,
-                        "std": float(row['std']) if not pd.isna(row['std']) else 0,
-                        "banda_2sigma_superior": float(row['banda_2sigma_superior']) if not pd.isna(row['banda_2sigma_superior']) else 0,
-                        "banda_2sigma_inferior": float(row['banda_2sigma_inferior']) if not pd.isna(row['banda_2sigma_inferior']) else 0,
-                        "banda_3sigma_superior": float(row['banda_3sigma_superior']) if not pd.isna(row['banda_3sigma_superior']) else 0,
-                        "banda_3sigma_inferior": float(row['banda_3sigma_inferior']) if not pd.isna(row['banda_3sigma_inferior']) else 0
-                    },
-                    "orderflow": {
-                        "delta": float(row['delta']) if not pd.isna(row.get('delta', None)) else 0,
-                        "vol_relativo": float(row['volumen_relativo']) if not pd.isna(row.get('volumen_relativo', None)) else 1.0,
-                        "anomalia_vol": bool(row['anomalia_volumen']) if not pd.isna(row.get('anomalia_volumen', None)) else False,
-                        "z_score_vol": float(row['z_score_volumen']) if not pd.isna(row.get('z_score_volumen', None)) else 0,
-                        "tick_volume": int(row['tick_volume']) if not pd.isna(row.get('tick_volume', None)) else 0
-                    }
-                })
-
-            # 7. Enviar a Supabase
-            modo = "INICIAL (DELETE+INSERT)" if is_first_sync else "INCREMENTAL (INSERT)"
+            # 7. Enviar a Supabase (siempre UPSERT, nunca DELETE)
+            modo = "UPSERT 100 velas" if is_first_cycle else f"UPSERT +{len(rows)} nuevas"
             log_mensaje(f"Enviando {len(rows)} filas [{modo}]...", "INFO")
-            if supabase.enviar_datos(rows, is_first_sync=is_first_sync):
+            if supabase.enviar_datos(rows):
                 log_mensaje("Datos sincronizados correctamente", "SUCCESS")
-                # Guardar timestamp de la última vela enviada
-                last_sync = rows[-1]['data_timestamp']
-                save_last_sync_time(last_sync)
-                is_first_sync = False
+                last_sent_time = datos_con_stats['time'].iloc[-1]
+                is_first_cycle = False
             else:
                 log_mensaje("Error sincronizando datos", "ERROR")
 
             # 8. Mostrar señal si existe
             if señal_rendlog.get('señal'):
                 print(f"\n{'='*70}")
-                print(f"🚨 SEÑAL DETECTADA: {señal_rendlog['señal']}")
+                print(f"  SENAL DETECTADA: {señal_rendlog['señal']}")
                 print(f"{'='*70}")
-                print(f"   Z-score: {señal_rendlog['z_score']:.3f}σ")
+                print(f"   Z-score: {señal_rendlog['z_score']:.3f}s")
                 print(f"   Mensaje: {señal_rendlog['mensaje']}")
                 print(f"   Timestamp: {señal_rendlog['timestamp']}")
                 print(f"{'='*70}\n")
 
             # 9. Esperar 30s
-            log_mensaje("Esperando 30s para próximo ciclo...\n", "INFO")
+            log_mensaje("Esperando 30s para proximo ciclo...\n", "INFO")
             time.sleep(30)
 
     except KeyboardInterrupt:
         print("\n\n" + "="*70)
-        log_mensaje("Deteniendo backend por petición del usuario...", "WARNING")
+        log_mensaje("Deteniendo backend por peticion del usuario...", "WARNING")
         mt5.shutdown()
         log_mensaje("Desconectado de MT5", "SUCCESS")
         print("="*70)

@@ -26,6 +26,9 @@ export default function DashboardPage() {
       return
     }
 
+    console.log('Rows recibidos:', rows?.length, rows?.[0])
+    if (error) console.error('Supabase error:', JSON.stringify(error))
+    console.log('User ID usado:', userId)
     setData(rows || [])
   }, [])
 

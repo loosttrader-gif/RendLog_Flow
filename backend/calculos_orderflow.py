@@ -16,7 +16,8 @@ def calcular_delta_volumen(df):
     df['volumen_bajista'] = df['tick_volume'].where(~df['es_alcista'], 0)
 
     # Delta = volumen alcista - volumen bajista
-    df['delta'] = df['volumen_alcista'] - df['volumen_bajista']
+    # Cast a int64 para evitar overflow con uint64 de MT5
+    df['delta'] = df['volumen_alcista'].astype(np.int64) - df['volumen_bajista'].astype(np.int64)
 
     return df
 

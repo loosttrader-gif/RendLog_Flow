@@ -81,13 +81,13 @@ class SupabaseClient:
             log_mensaje(f"Excepción obteniendo config: {e}", "ERROR")
             return None
 
-    def enviar_datos(self, rows, is_first_sync=False):
+    def enviar_datos(self, rows):
         """
-        Envía datos a Supabase. Primera vez borra anteriores, después solo inserta nuevos.
+        Envía datos a Supabase via UPSERT (INSERT + ON CONFLICT UPDATE).
+        Nunca borra datos existentes.
 
         Args:
             rows: list[dict] con cada fila conteniendo data_timestamp, rendlog, orderflow
-            is_first_sync: bool, True para borrar datos anteriores antes de insertar
 
         Returns:
             bool: True si envío exitoso, False si falla
@@ -96,8 +96,7 @@ class SupabaseClient:
 
         payload = {
             "api_key_param": self.api_key,
-            "rows_param": rows,
-            "is_first_sync": is_first_sync
+            "rows_param": rows
         }
 
         try:
