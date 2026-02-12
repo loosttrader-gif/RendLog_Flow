@@ -11,8 +11,8 @@ class SupabaseClient:
         self.api_key = API_KEY
 
         self.headers = {
-            "apikey": self.anon_key,
-            "Authorization": f"Bearer {self.anon_key}",
+            "apikey": self.api_key,
+            "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
 
