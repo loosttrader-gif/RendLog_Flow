@@ -24,10 +24,10 @@ function CustomDot({ cx, cy, payload }) {
   const { log_return, banda_2sigma_superior, banda_2sigma_inferior } = payload.rendlog
 
   if (log_return > banda_2sigma_superior) {
-    return <circle cx={cx} cy={cy} r={5} fill="#ef4444" stroke="#fff" strokeWidth={1} />
+    return <circle cx={cx} cy={cy} r={5} fill="#ef4444" stroke="#1f1f1f" strokeWidth={1} />
   }
   if (log_return < banda_2sigma_inferior) {
-    return <circle cx={cx} cy={cy} r={5} fill="#22c55e" stroke="#fff" strokeWidth={1} />
+    return <circle cx={cx} cy={cy} r={5} fill="#10b981" stroke="#1f1f1f" strokeWidth={1} />
   }
   return null
 }
@@ -40,22 +40,22 @@ function CustomTooltip({ active, payload }) {
 
   const r = item.rendlog
   return (
-    <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200 text-sm">
-      <p className="font-semibold text-gray-800 mb-2">{formatTime(item.data_timestamp)}</p>
-      <p className="text-gray-600">Log Return: <span className="font-mono">{r.log_return?.toFixed(6)}</span></p>
-      <p className="text-gray-600">Z-Score: <span className="font-mono">{r.z_score?.toFixed(4)}</span></p>
-      <p className="text-gray-600 mb-2">
-        Señal:{' '}
+    <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-dark-borderLight text-sm">
+      <p className="font-semibold text-white mb-2">{formatTime(item.data_timestamp)}</p>
+      <p className="text-dark-textGray">Log Return: <span className="font-mono text-white">{r.log_return?.toFixed(6)}</span></p>
+      <p className="text-dark-textGray">Z-Score: <span className="font-mono text-white">{r.z_score?.toFixed(4)}</span></p>
+      <p className="text-dark-textGray mb-2">
+        Senal:{' '}
         <span className={
-          r.senal === 'COMPRA' ? 'text-green-600 font-semibold' :
-          r.senal === 'VENTA' ? 'text-red-600 font-semibold' :
-          'text-gray-400'
+          r.senal === 'COMPRA' ? 'text-success font-semibold' :
+          r.senal === 'VENTA' ? 'text-danger font-semibold' :
+          'text-dark-textGray'
         }>
-          {r.senal || 'Sin señal'}
+          {r.senal || 'Sin senal'}
         </span>
       </p>
-      <p className="text-red-500">+2σ: {r.banda_2sigma_superior?.toFixed(6)}</p>
-      <p className="text-red-500">-2σ: {r.banda_2sigma_inferior?.toFixed(6)}</p>
+      <p className="text-danger/80">+2s: {r.banda_2sigma_superior?.toFixed(6)}</p>
+      <p className="text-danger/80">-2s: {r.banda_2sigma_inferior?.toFixed(6)}</p>
     </div>
   )
 }
@@ -72,24 +72,23 @@ export default function RendLogChart({ data }) {
   }))
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <h2 className="text-lg font-semibold text-gray-800 mb-4">RendLog - Log Returns</h2>
+    <div className="bg-dark-card rounded-xl border border-dark-border p-6">
+      <h2 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">RendLog - Log Returns</h2>
       <ResponsiveContainer width="100%" height={400}>
         <ComposedChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
           <XAxis
             dataKey="time"
-            tick={{ fontSize: 11, fill: '#6b7280' }}
+            tick={{ fontSize: 11, fill: '#8a8a8a' }}
             tickLine={false}
-            axisLine={{ stroke: '#e5e7eb' }}
+            axisLine={{ stroke: '#1f1f1f' }}
           />
           <YAxis
-            tick={{ fontSize: 12, fill: '#6b7280' }}
+            tick={{ fontSize: 12, fill: '#8a8a8a' }}
             tickLine={false}
-            axisLine={{ stroke: '#e5e7eb' }}
+            axisLine={{ stroke: '#1f1f1f' }}
             tickFormatter={(v) => v.toFixed(4)}
           />
           <Tooltip content={<CustomTooltip />} />
-          {/* Banda superior 3σ */}
           <Line
             type="monotone"
             dataKey="banda_3sigma_sup"
@@ -97,9 +96,8 @@ export default function RendLogChart({ data }) {
             strokeWidth={2}
             strokeDasharray="3 3"
             dot={false}
-            name="Banda +3σ"
+            name="Banda +3s"
           />
-          {/* Banda inferior 3σ */}
           <Line
             type="monotone"
             dataKey="banda_3sigma_inf"
@@ -107,9 +105,8 @@ export default function RendLogChart({ data }) {
             strokeWidth={2}
             strokeDasharray="3 3"
             dot={false}
-            name="Banda -3σ"
+            name="Banda -3s"
           />
-          {/* Banda superior 2σ */}
           <Line
             type="monotone"
             dataKey="banda_2sigma_sup"
@@ -117,9 +114,8 @@ export default function RendLogChart({ data }) {
             strokeWidth={2}
             strokeDasharray="5 5"
             dot={false}
-            name="Banda +2σ"
+            name="Banda +2s"
           />
-          {/* Banda inferior 2σ */}
           <Line
             type="monotone"
             dataKey="banda_2sigma_inf"
@@ -127,13 +123,12 @@ export default function RendLogChart({ data }) {
             strokeWidth={2}
             strokeDasharray="5 5"
             dot={false}
-            name="Banda -2σ"
+            name="Banda -2s"
           />
-          {/* Log Return principal */}
           <Line
             type="monotone"
             dataKey="log_return"
-            stroke="#111827"
+            stroke="#F59E0B"
             strokeWidth={2}
             dot={<CustomDot />}
             name="Log Return"
@@ -141,7 +136,8 @@ export default function RendLogChart({ data }) {
           <Brush
             dataKey="time"
             height={30}
-            stroke="#3B82F6"
+            stroke="#F59E0B"
+            fill="#111111"
             startIndex={Math.max(0, chartData.length - 50)}
           />
         </ComposedChart>

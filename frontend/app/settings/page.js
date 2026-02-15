@@ -43,35 +43,35 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-dark-bg">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-dark-textGray">Cargando configuracion...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-accent/20 border-t-accent mx-auto mb-4"></div>
+          <p className="text-dark-textGray text-sm">Cargando configuracion...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-dark-bg">
+    <div className="min-h-screen pt-14">
       <div className="max-w-4xl mx-auto p-8">
-        <h1 className="text-3xl font-bold text-dark-text mb-2">Configuracion</h1>
-        <p className="text-dark-textGray mb-8">
+        <h1 className="text-2xl font-bold text-white mb-1">Configuracion</h1>
+        <p className="text-dark-textGray text-sm mb-8">
           Administra tu API Key y preferencias
         </p>
 
         {/* API Key Section */}
-        <div className="bg-dark-card p-6 rounded-lg border border-dark-border mb-8">
-          <h3 className="text-xl font-semibold text-dark-text mb-4">Tu API Key</h3>
+        <div className="bg-dark-card p-6 rounded-xl border border-dark-border mb-6">
+          <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Tu API Key</h3>
 
           {apiKey ? (
             <>
-              <div className="bg-dark-bg p-6 rounded-lg mb-4">
-                <p className="text-sm text-dark-textGray mb-3">
+              <div className="bg-black/40 p-5 rounded-lg mb-4">
+                <p className="text-xs text-dark-textGray mb-3">
                   Usa esta API Key para conectar tu backend local:
                 </p>
                 <div className="flex items-center space-x-2">
-                  <code className="flex-1 bg-dark-card px-4 py-3 rounded border border-primary text-primary font-mono text-sm break-all">
+                  <code className="flex-1 bg-dark-bg px-4 py-3 rounded border border-accent/20 text-accent font-mono text-sm break-all">
                     {apiKey}
                   </code>
                   <button
@@ -79,7 +79,7 @@ export default function SettingsPage() {
                       navigator.clipboard.writeText(apiKey)
                       alert('API Key copiada al portapapeles')
                     }}
-                    className="px-4 py-3 bg-primary text-white rounded hover:bg-primary-dark transition whitespace-nowrap"
+                    className="px-4 py-3 bg-accent text-black rounded hover:bg-accent-light transition whitespace-nowrap font-medium text-sm"
                   >
                     Copiar
                   </button>
@@ -87,12 +87,12 @@ export default function SettingsPage() {
               </div>
 
               {showInstructions && (
-                <div className="bg-dark-bg p-6 rounded-lg">
+                <div className="bg-black/30 p-5 rounded-lg">
                   <div className="flex justify-between items-start mb-4">
-                    <h4 className="font-semibold text-lg text-primary">Configurar Backend</h4>
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-accent">Configurar Backend</h4>
                     <button
                       onClick={() => setShowInstructions(false)}
-                      className="text-dark-textGray hover:text-dark-text text-xl leading-none"
+                      className="text-dark-textGray hover:text-white text-lg leading-none"
                     >
                       &times;
                     </button>
@@ -100,34 +100,34 @@ export default function SettingsPage() {
 
                   <div className="space-y-4 text-sm">
                     <div className="flex items-start space-x-3">
-                      <span className="flex-shrink-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-bold">1</span>
+                      <span className="flex-shrink-0 w-7 h-7 bg-accent text-black rounded-full flex items-center justify-center text-xs font-bold">1</span>
                       <div className="flex-1">
-                        <p className="font-semibold mb-1">Descargar Backend</p>
+                        <p className="font-semibold text-white mb-0.5">Descargar Backend</p>
                         <a
                           href="https://github.com/loosttrader-gif/RendLog_Flow"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-primary hover:underline"
+                          className="text-accent hover:text-accent-light transition text-xs"
                         >
-                          https://github.com/loosttrader-gif/RendLog_Flow
+                          github.com/loosttrader-gif/RendLog_Flow
                         </a>
                       </div>
                     </div>
 
                     <div className="flex items-start space-x-3">
-                      <span className="flex-shrink-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white font-bold">2</span>
+                      <span className="flex-shrink-0 w-7 h-7 bg-accent text-black rounded-full flex items-center justify-center text-xs font-bold">2</span>
                       <div className="flex-1">
-                        <p className="font-semibold mb-1">Configurar .env</p>
-                        <p className="text-dark-textGray">En <code className="bg-dark-card px-2 py-1 rounded">backend/.env</code></p>
-                        <p className="text-dark-textGray">Pega tu API_KEY en: <code className="bg-dark-card px-2 py-1 rounded">API_KEY=</code></p>
+                        <p className="font-semibold text-white mb-0.5">Configurar .env</p>
+                        <p className="text-dark-textGray text-xs">En <code className="bg-black/40 px-1.5 py-0.5 rounded">backend/.env</code></p>
+                        <p className="text-dark-textGray text-xs">Pega tu API_KEY en: <code className="bg-black/40 px-1.5 py-0.5 rounded">API_KEY=</code></p>
                       </div>
                     </div>
 
                     <div className="flex items-start space-x-3">
-                      <span className="flex-shrink-0 w-8 h-8 bg-success rounded-full flex items-center justify-center text-white font-bold text-xs">OK</span>
+                      <span className="flex-shrink-0 w-7 h-7 bg-success text-white rounded-full flex items-center justify-center text-xs font-bold">3</span>
                       <div className="flex-1">
-                        <p className="font-semibold mb-1">Ejecutar Backend</p>
-                        <code className="block bg-dark-card px-3 py-2 rounded mt-1">python main.py</code>
+                        <p className="font-semibold text-white mb-0.5">Ejecutar Backend</p>
+                        <code className="block bg-black/40 px-3 py-2 rounded mt-1 text-accent/80 text-xs">python main.py</code>
                       </div>
                     </div>
                   </div>
@@ -136,22 +136,22 @@ export default function SettingsPage() {
             </>
           ) : (
             <div className="text-center py-8">
-              <p className="text-dark-textGray">No se encontro tu API Key. Contacta soporte.</p>
+              <p className="text-dark-textGray text-sm">No se encontro tu API Key. Contacta soporte.</p>
             </div>
           )}
         </div>
 
         {/* User Info */}
-        <div className="bg-dark-card p-6 rounded-lg border border-dark-border">
-          <h3 className="text-xl font-semibold text-dark-text mb-4">Informacion de Cuenta</h3>
+        <div className="bg-dark-card p-6 rounded-xl border border-dark-border">
+          <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Informacion de Cuenta</h3>
           <div className="space-y-3">
             <div>
-              <p className="text-sm text-dark-textGray">Email</p>
-              <p className="text-dark-text font-medium">{user?.email}</p>
+              <p className="text-xs text-dark-textGray uppercase tracking-wider">Email</p>
+              <p className="text-white font-medium">{user?.email}</p>
             </div>
             <div>
-              <p className="text-sm text-dark-textGray">ID de Usuario</p>
-              <p className="text-dark-text font-mono text-xs">{user?.id}</p>
+              <p className="text-xs text-dark-textGray uppercase tracking-wider">ID de Usuario</p>
+              <p className="text-dark-textGray font-mono text-xs">{user?.id}</p>
             </div>
           </div>
         </div>

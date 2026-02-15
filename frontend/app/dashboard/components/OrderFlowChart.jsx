@@ -30,17 +30,17 @@ function CustomTooltip({ active, payload }) {
 
   const of = item.orderflow
   return (
-    <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200 text-sm">
-      <p className="font-semibold text-gray-800 mb-1">{formatTime(item.data_timestamp, true)}</p>
-      <p className="text-gray-600">
-        Delta: <span className={`font-mono font-semibold ${of.delta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+    <div className="bg-dark-card p-3 rounded-lg shadow-lg border border-dark-borderLight text-sm">
+      <p className="font-semibold text-white mb-1">{formatTime(item.data_timestamp, true)}</p>
+      <p className="text-dark-textGray">
+        Delta: <span className={`font-mono font-semibold ${of.delta > 0 ? 'text-success' : 'text-danger'}`}>
           {of.delta > 0 ? '+' : ''}{of.delta}
         </span>
       </p>
-      <p className="text-gray-600">Vol Relativo: <span className="font-mono">{of.vol_relativo?.toFixed(2)}</span></p>
-      <p className="text-gray-600">Z-Score Vol: <span className="font-mono">{of.z_score_vol?.toFixed(4)}</span></p>
+      <p className="text-dark-textGray">Vol Relativo: <span className="font-mono text-white">{of.vol_relativo?.toFixed(2)}</span></p>
+      <p className="text-dark-textGray">Z-Score Vol: <span className="font-mono text-white">{of.z_score_vol?.toFixed(4)}</span></p>
       {of.anomalia_vol && (
-        <p className="text-orange-500 font-semibold mt-1">Anomalia de volumen</p>
+        <p className="text-warning font-semibold mt-1">Anomalia de volumen</p>
       )}
     </div>
   )
@@ -67,8 +67,8 @@ export default function OrderFlowChart({ data }) {
   }, [data])
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <h2 className="text-lg font-semibold text-gray-800 mb-4">Order Flow - Volumen & Delta</h2>
+    <div className="bg-dark-card rounded-xl border border-dark-border p-6">
+      <h2 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Order Flow - Volumen & Delta</h2>
       <ResponsiveContainer width="100%" height={350}>
         <ComposedChart
           data={chartData}
@@ -76,27 +76,27 @@ export default function OrderFlowChart({ data }) {
         >
           <XAxis
             dataKey="time"
-            tick={{ fontSize: 12, fill: '#6b7280' }}
+            tick={{ fontSize: 12, fill: '#8a8a8a' }}
             tickLine={false}
-            axisLine={{ stroke: '#e5e7eb' }}
+            axisLine={{ stroke: '#1f1f1f' }}
           />
           <YAxis
             yAxisId="left"
-            tick={{ fontSize: 12, fill: '#6b7280' }}
+            tick={{ fontSize: 12, fill: '#8a8a8a' }}
             tickLine={false}
-            axisLine={{ stroke: '#e5e7eb' }}
+            axisLine={{ stroke: '#1f1f1f' }}
           />
           <YAxis
             yAxisId="right"
             orientation="right"
-            tick={{ fontSize: 12, fill: '#6b7280' }}
+            tick={{ fontSize: 12, fill: '#8a8a8a' }}
             tickLine={false}
-            axisLine={{ stroke: '#e5e7eb' }}
+            axisLine={{ stroke: '#1f1f1f' }}
             tickFormatter={(v) => v.toFixed(1)}
           />
           <Tooltip
             content={<CustomTooltip />}
-            cursor={{ strokeDasharray: '3 3' }}
+            cursor={{ strokeDasharray: '3 3', stroke: '#2a2a2a' }}
             isAnimationActive={false}
           />
           <Bar
@@ -109,8 +109,8 @@ export default function OrderFlowChart({ data }) {
             {chartData.map((entry, index) => (
               <Cell
                 key={index}
-                fill={entry.orderflow?.delta > 0 ? '#22c55e' : '#ef4444'}
-                stroke={entry.orderflow?.anomalia_vol ? '#f97316' : 'none'}
+                fill={entry.orderflow?.delta > 0 ? '#10b981' : '#ef4444'}
+                stroke={entry.orderflow?.anomalia_vol ? '#f59e0b' : 'none'}
                 strokeWidth={entry.orderflow?.anomalia_vol ? 2 : 0}
               />
             ))}
@@ -119,7 +119,7 @@ export default function OrderFlowChart({ data }) {
             yAxisId="right"
             type="monotone"
             dataKey="vol_relativo"
-            stroke="#8b5cf6"
+            stroke="#F59E0B"
             strokeWidth={2}
             dot={false}
             name="Vol Relativo"
