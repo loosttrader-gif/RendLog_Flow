@@ -8,16 +8,7 @@ import {
   ComposedChart,
   Brush,
 } from 'recharts'
-
-function formatTime(timestamp) {
-  const date = new Date(timestamp)
-  return date.toLocaleDateString('es-ES', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
+import { formatTime } from '@/lib/timezone'
 
 function CustomDot({ cx, cy, payload }) {
   if (!payload || !payload.rendlog) return null
@@ -32,38 +23,38 @@ function CustomDot({ cx, cy, payload }) {
   return null
 }
 
-function CustomTooltip({ active, payload }) {
-  if (!active || !payload || !payload.length) return null
+export default function RendLogChart({ data, timezone }) {
+  function CustomTooltip({ active, payload }) {
+    if (!active || !payload || !payload.length) return null
 
-  const item = payload[0]?.payload
-  if (!item || !item.rendlog) return null
+    const item = payload[0]?.payload
+    if (!item || !item.rendlog) return null
 
-  const r = item.rendlog
-  return (
-    <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-dark-borderLight text-sm">
-      <p className="font-semibold text-white mb-2">{formatTime(item.data_timestamp)}</p>
-      <p className="text-dark-textGray">Log Return: <span className="font-mono text-white">{r.log_return?.toFixed(6)}</span></p>
-      <p className="text-dark-textGray">Z-Score: <span className="font-mono text-white">{r.z_score?.toFixed(4)}</span></p>
-      <p className="text-dark-textGray mb-2">
-        Senal:{' '}
-        <span className={
-          r.senal === 'COMPRA' ? 'text-success font-semibold' :
-          r.senal === 'VENTA' ? 'text-danger font-semibold' :
-          'text-dark-textGray'
-        }>
-          {r.senal || 'Sin senal'}
-        </span>
-      </p>
-      <p className="text-danger/80">+2s: {r.banda_2sigma_superior?.toFixed(6)}</p>
-      <p className="text-danger/80">-2s: {r.banda_2sigma_inferior?.toFixed(6)}</p>
-    </div>
-  )
-}
+    const r = item.rendlog
+    return (
+      <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-dark-borderLight text-sm">
+        <p className="font-semibold text-white mb-2">{formatTime(item.data_timestamp, timezone, { includeDate: true })}</p>
+        <p className="text-dark-textGray">Log Return: <span className="font-mono text-white">{r.log_return?.toFixed(6)}</span></p>
+        <p className="text-dark-textGray">Z-Score: <span className="font-mono text-white">{r.z_score?.toFixed(4)}</span></p>
+        <p className="text-dark-textGray mb-2">
+          Senal:{' '}
+          <span className={
+            r.senal === 'COMPRA' ? 'text-success font-semibold' :
+            r.senal === 'VENTA' ? 'text-danger font-semibold' :
+            'text-dark-textGray'
+          }>
+            {r.senal || 'Sin senal'}
+          </span>
+        </p>
+        <p className="text-danger/80">+2s: {r.banda_2sigma_superior?.toFixed(6)}</p>
+        <p className="text-danger/80">-2s: {r.banda_2sigma_inferior?.toFixed(6)}</p>
+      </div>
+    )
+  }
 
-export default function RendLogChart({ data }) {
   const chartData = data.map((item) => ({
     ...item,
-    time: formatTime(item.data_timestamp),
+    time: formatTime(item.data_timestamp, timezone, { includeDate: true }),
     log_return: item.rendlog?.log_return,
     banda_2sigma_sup: item.rendlog?.banda_2sigma_superior,
     banda_2sigma_inf: item.rendlog?.banda_2sigma_inferior,

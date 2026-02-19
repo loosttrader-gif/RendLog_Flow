@@ -10,45 +10,35 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts'
-
-function formatTime(timestamp, includeDate = false) {
-  const date = new Date(timestamp)
-  if (includeDate) {
-    const day = date.getDate()
-    const month = date.getMonth() + 1
-    const time = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-    return `${day}/${month}, ${time}`
-  }
-  return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-}
-
-function CustomTooltip({ active, payload }) {
-  if (!active || !payload || !payload.length) return null
-
-  const item = payload[0]?.payload
-  if (!item) return null
-
-  const of = item.orderflow
-  return (
-    <div className="bg-dark-card p-3 rounded-lg shadow-lg border border-dark-borderLight text-sm">
-      <p className="font-semibold text-white mb-1">{formatTime(item.data_timestamp, true)}</p>
-      <p className="text-dark-textGray">
-        Delta: <span className={`font-mono font-semibold ${of.delta > 0 ? 'text-success' : 'text-danger'}`}>
-          {of.delta > 0 ? '+' : ''}{of.delta}
-        </span>
-      </p>
-      <p className="text-dark-textGray">Vol Relativo: <span className="font-mono text-white">{of.vol_relativo?.toFixed(2)}</span></p>
-      <p className="text-dark-textGray">Z-Score Vol: <span className="font-mono text-white">{of.z_score_vol?.toFixed(4)}</span></p>
-      {of.anomalia_vol && (
-        <p className="text-warning font-semibold mt-1">Anomalia de volumen</p>
-      )}
-    </div>
-  )
-}
+import { formatTime } from '@/lib/timezone'
 
 const MAX_VALID_DELTA = 1_000_000
 
-export default function OrderFlowChart({ data }) {
+export default function OrderFlowChart({ data, timezone }) {
+  function CustomTooltip({ active, payload }) {
+    if (!active || !payload || !payload.length) return null
+
+    const item = payload[0]?.payload
+    if (!item) return null
+
+    const of = item.orderflow
+    return (
+      <div className="bg-dark-card p-3 rounded-lg shadow-lg border border-dark-borderLight text-sm">
+        <p className="font-semibold text-white mb-1">{formatTime(item.data_timestamp, timezone, { includeDate: true })}</p>
+        <p className="text-dark-textGray">
+          Delta: <span className={`font-mono font-semibold ${of.delta > 0 ? 'text-success' : 'text-danger'}`}>
+            {of.delta > 0 ? '+' : ''}{of.delta}
+          </span>
+        </p>
+        <p className="text-dark-textGray">Vol Relativo: <span className="font-mono text-white">{of.vol_relativo?.toFixed(2)}</span></p>
+        <p className="text-dark-textGray">Z-Score Vol: <span className="font-mono text-white">{of.z_score_vol?.toFixed(4)}</span></p>
+        {of.anomalia_vol && (
+          <p className="text-warning font-semibold mt-1">Anomalia de volumen</p>
+        )}
+      </div>
+    )
+  }
+
   const chartData = useMemo(() => {
     return data
       .filter((item) => {
@@ -60,11 +50,11 @@ export default function OrderFlowChart({ data }) {
       .sort((a, b) => new Date(a.data_timestamp) - new Date(b.data_timestamp))
       .map((item) => ({
         ...item,
-        time: formatTime(item.data_timestamp, true),
+        time: formatTime(item.data_timestamp, timezone, { includeDate: true }),
         tick_volume: item.orderflow?.tick_volume ?? 0,
         vol_relativo: item.orderflow?.vol_relativo ?? 0,
       }))
-  }, [data])
+  }, [data, timezone])
 
   return (
     <div className="bg-dark-card rounded-xl border border-dark-border p-6">

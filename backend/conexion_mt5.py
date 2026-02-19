@@ -2,7 +2,7 @@
 import MetaTrader5 as mt5
 import pandas as pd
 from datetime import datetime
-from config import MT5_LOGIN, MT5_PASSWORD, MT5_SERVER, SYMBOL
+from config import MT5_LOGIN, MT5_PASSWORD, MT5_SERVER, SYMBOL, BROKER_UTC_OFFSET_HOURS
 from utils import log_mensaje
 
 def conectar_mt5():
@@ -84,7 +84,8 @@ def obtener_datos_historicos(symbol, timeframe_minutes, num_bars):
 
         # Convertir a DataFrame
         df = pd.DataFrame(rates)
-        df['time'] = pd.to_datetime(df['time'], unit='s')
+        # MT5 devuelve timestamps en hora del broker; restar offset para obtener UTC real
+        df['time'] = pd.to_datetime(df['time'], unit='s') - pd.Timedelta(hours=BROKER_UTC_OFFSET_HOURS)
 
         return df[['time', 'open', 'high', 'low', 'close', 'tick_volume']]
 

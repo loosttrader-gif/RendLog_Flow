@@ -1,18 +1,7 @@
 'use client'
+import { formatTime } from '@/lib/timezone'
 
-function formatTimestamp(timestamp) {
-  if (!timestamp) return '--'
-  const date = new Date(timestamp)
-  return date.toLocaleString('es-ES', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
-}
-
-export default function StatsPanel({ latestData, isConnected, selectedTF }) {
+export default function StatsPanel({ latestData, isConnected, selectedTF, timezone }) {
   const rendlog = latestData?.rendlog
   const senal = rendlog?.senal
   const zScore = rendlog?.z_score
@@ -23,7 +12,7 @@ export default function StatsPanel({ latestData, isConnected, selectedTF }) {
         <p className="text-xs text-dark-textGray uppercase tracking-wider mb-1">Timeframe</p>
         <p className="text-2xl font-bold text-accent">{selectedTF || '--'}</p>
         <p className="text-xs text-dark-textGray mt-1">
-          {formatTimestamp(latestData?.data_timestamp)}
+          {formatTime(latestData?.data_timestamp, timezone, { includeDate: true, includeSeconds: true })}
         </p>
       </div>
 
