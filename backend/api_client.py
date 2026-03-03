@@ -84,7 +84,6 @@ class SupabaseClient:
     def enviar_datos(self, rows):
         """
         Envía datos a Supabase via UPSERT (INSERT + ON CONFLICT UPDATE).
-        Nunca borra datos existentes.
 
         Args:
             rows: list[dict] con cada fila conteniendo data_timestamp, rendlog, orderflow
@@ -115,4 +114,58 @@ class SupabaseClient:
 
         except Exception as e:
             log_mensaje(f"Excepción enviando datos: {e}", "ERROR")
+            return False
+
+    def delete_user_data(self):
+        """
+        Elimina TODOS los datos del usuario en Supabase.
+        Se llama al iniciar main.py para reset total.
+
+        Returns:
+            bool: True si eliminación exitosa, False si falla
+        """
+        url = f"{self.supabase_url}/rest/v1/rpc/delete_user_data"
+        payload = {"api_key_param": self.api_key}
+
+        try:
+            response = requests.post(url, json=payload, headers=self.headers)
+
+            if response.status_code == 200:
+                return True
+            else:
+                log_mensaje(f"Error eliminando datos: {response.status_code} - {response.text}", "ERROR")
+                return False
+
+        except Exception as e:
+            log_mensaje(f"Excepcion eliminando datos: {e}", "ERROR")
+            return False
+
+    def delete_oldest_candle(self, timeframe):
+        """
+        Elimina la vela mas antigua de un timeframe especifico.
+        Mantiene la ventana movil de 60 velas.
+
+        Args:
+            timeframe: str nombre del timeframe (ej: "1M", "5M")
+
+        Returns:
+            bool: True si eliminación exitosa, False si falla
+        """
+        url = f"{self.supabase_url}/rest/v1/rpc/delete_oldest_candle"
+        payload = {
+            "api_key_param": self.api_key,
+            "timeframe_param": timeframe
+        }
+
+        try:
+            response = requests.post(url, json=payload, headers=self.headers)
+
+            if response.status_code == 200:
+                return True
+            else:
+                log_mensaje(f"Error eliminando vela antigua: {response.status_code} - {response.text}", "ERROR")
+                return False
+
+        except Exception as e:
+            log_mensaje(f"Excepcion eliminando vela antigua: {e}", "ERROR")
             return False

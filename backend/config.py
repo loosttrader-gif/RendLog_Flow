@@ -25,6 +25,12 @@ SYMBOL = "EURUSD"
 BROKER_UTC_OFFSET_HOURS = int(os.getenv("BROKER_UTC_OFFSET", "2"))
 
 # ============================================================
+# VENTANA MOVIL DE VELAS
+# ============================================================
+# Numero exacto de velas que se mantienen en Supabase por timeframe
+VENTANA_VELAS = 60
+
+# ============================================================
 # CONFIGURACIÓN POR DEFECTO
 # ============================================================
 # Se sobrescribe con datos de Supabase si el usuario tiene config personalizada
@@ -33,7 +39,7 @@ DEFAULT_CONFIG = {
     "timezone": "America/New_York",
     "umbral_sigma_compra": -2.0,
     "umbral_sigma_venta": 2.0,
-    "ventana_estadistica": 100,
+    "ventana_estadistica": 20,
     "alertas_activas": False
 }
 
