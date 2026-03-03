@@ -23,7 +23,6 @@ export default function LoginPage() {
 
       if (error) throw error
 
-      // Verificar si el usuario ya tiene profile
       const { data: profile } = await supabase
         .from('user_profiles')
         .select('id')
@@ -31,9 +30,7 @@ export default function LoginPage() {
         .maybeSingle()
 
       if (!profile) {
-        // No tiene profile, llamar Edge Function para crearlo
         console.log('Profile no encontrado, creando profile...')
-
         console.log('JWT Token:', data.session.access_token)
 
         try {
@@ -71,59 +68,95 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="bg-dark-card p-8 rounded-lg shadow-lg max-w-md w-full border border-dark-border">
-        <h1 className="text-3xl font-bold text-center mb-2">Iniciar Sesion</h1>
-        <p className="text-dark-textGray text-center mb-8">
-          Accede a tu dashboard de RendLog Flow
-        </p>
+    <div className="min-h-screen flex relative overflow-hidden">
+      {/* GIF Background */}
+      <img
+        src="/login-registervideo.gif"
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover"
+      />
 
-        {error && (
-          <div className="bg-red-900/20 border border-danger rounded-lg p-4 mb-6">
-            <p className="text-danger text-sm">{error}</p>
-          </div>
-        )}
+      {/* Dark overlay on video */}
+      <div className="absolute inset-0 bg-black/60" />
 
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium mb-2">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-3 bg-dark-bg border border-dark-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition"
-              placeholder="tu@email.com"
-            />
+      {/* Form Panel - right side */}
+      <div className="relative z-10 ml-auto w-full max-w-md lg:max-w-lg min-h-screen flex items-center justify-center px-6 lg:px-12">
+        <div className="glass-panel rounded-2xl p-8 lg:p-10 w-full shadow-2xl">
+          {/* Logo */}
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold">
+              <span className="text-accent">Rend</span>
+              <span className="text-white">Log</span>
+              <span className="text-dark-textGray text-lg ml-2 font-normal">Flow</span>
+            </h2>
+            <div className="w-12 h-0.5 bg-accent/40 mt-3" />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Contrasena</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-4 py-3 bg-dark-bg border border-dark-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition"
-              placeholder="Tu contrasena"
-            />
+          <h1 className="text-2xl font-semibold text-white mb-1">Iniciar Sesion</h1>
+          <p className="text-dark-textGray text-sm mb-8">
+            Accede a tu dashboard de trading algoritmico
+          </p>
+
+          {error && (
+            <div className="bg-danger/10 border border-danger/30 rounded-lg p-3 mb-6">
+              <p className="text-danger text-sm">{error}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div>
+              <label className="block text-xs font-medium text-dark-textGray uppercase tracking-wider mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="input-field"
+                placeholder="tu@email.com"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-dark-textGray uppercase tracking-wider mb-2">
+                Contrasena
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="input-field"
+                placeholder="Tu contrasena"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary mt-2"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                  Iniciando sesion...
+                </span>
+              ) : (
+                'Iniciar Sesion'
+              )}
+            </button>
+          </form>
+
+          <div className="mt-8 pt-6 border-t border-white/5">
+            <p className="text-center text-sm text-dark-textGray">
+              No tienes cuenta?{' '}
+              <a href="/register" className="text-accent hover:text-accent-light transition">
+                Registrate aqui
+              </a>
+            </p>
           </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Iniciando sesion...' : 'Iniciar Sesion'}
-          </button>
-        </form>
-
-        <p className="text-center text-sm text-dark-textGray mt-6">
-          No tienes cuenta?{' '}
-          <a href="/register" className="text-primary hover:underline">
-            Registrate aqui
-          </a>
-        </p>
+        </div>
       </div>
     </div>
   )

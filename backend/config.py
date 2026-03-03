@@ -20,6 +20,16 @@ MT5_PASSWORD = os.getenv("MT5_PASSWORD") or ""
 MT5_SERVER = os.getenv("MT5_SERVER", "Tickmill-Demo")
 SYMBOL = "EURUSD"
 
+# Offset UTC del servidor del broker (Tickmill = UTC+2, en verano UTC+3)
+# MT5 devuelve timestamps en hora del broker; se resta este offset para convertir a UTC real
+BROKER_UTC_OFFSET_HOURS = int(os.getenv("BROKER_UTC_OFFSET", "2"))
+
+# ============================================================
+# VENTANA MOVIL DE VELAS
+# ============================================================
+# Numero exacto de velas que se mantienen en Supabase por timeframe
+VENTANA_VELAS = 60
+
 # ============================================================
 # CONFIGURACIÓN POR DEFECTO
 # ============================================================
@@ -29,7 +39,7 @@ DEFAULT_CONFIG = {
     "timezone": "America/New_York",
     "umbral_sigma_compra": -2.0,
     "umbral_sigma_venta": 2.0,
-    "ventana_estadistica": 100,
+    "ventana_estadistica": 20,
     "alertas_activas": False
 }
 
