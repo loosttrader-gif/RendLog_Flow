@@ -115,16 +115,12 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex relative overflow-hidden">
-      {/* Video Background */}
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
+      {/* GIF Background */}
+      <img
+        src="/login-registervideo.gif"
+        alt=""
         className="absolute inset-0 w-full h-full object-cover"
-      >
-        <source src="/login-registervideo.mp4" type="video/mp4" />
-      </video>
+      />
       <div className="absolute inset-0 bg-black/60" />
 
       {/* Form Panel - right side */}
