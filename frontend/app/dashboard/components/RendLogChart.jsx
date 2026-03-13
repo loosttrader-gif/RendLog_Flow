@@ -31,23 +31,70 @@ export default function RendLogChart({ data, timezone }) {
     if (!item || !item.rendlog) return null
 
     const r = item.rendlog
+    const senalSuprimida = r.senal_suprimida ?? false
+    const calibracionActiva = r.calibracion_activa ?? false
+
+    const regimenColor =
+      r.regimen === 'RANGO' ? 'text-success' :
+      r.regimen === 'TENDENCIA' ? 'text-danger' :
+      r.regimen === 'AMBIGUO' ? 'text-warning' :
+      'text-dark-textGray'
+
+    const volRatioColor = (r.vol_ratio ?? 0) > 1.3 ? 'text-warning' : 'text-white'
+
+    const percentilColor =
+      r.percentil_real == null ? 'text-dark-textGray' :
+      r.percentil_real >= 97 ? 'text-success' :
+      r.percentil_real >= 95 ? 'text-warning' :
+      'text-dark-textGray'
+
     return (
-      <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-dark-borderLight text-sm">
+      <div className="bg-dark-card p-4 rounded-lg shadow-lg border border-dark-borderLight text-sm min-w-[220px]">
         <p className="font-semibold text-white mb-2">{formatTime(item.data_timestamp, timezone, { includeDate: true })}</p>
+
+        {/* RETORNO */}
+        <p className="text-[10px] text-dark-textGray/50 uppercase tracking-widest mb-1">Retorno</p>
         <p className="text-dark-textGray">Log Return: <span className="font-mono text-white">{r.log_return?.toFixed(6)}</span></p>
-        <p className="text-dark-textGray">Z-Score: <span className="font-mono text-white">{r.z_score?.toFixed(4)}</span></p>
-        <p className="text-dark-textGray mb-2">
-          Senal:{' '}
-          <span className={
-            r.senal === 'COMPRA' ? 'text-success font-semibold' :
-            r.senal === 'VENTA' ? 'text-danger font-semibold' :
-            'text-dark-textGray'
-          }>
-            {r.senal || 'Sin senal'}
-          </span>
-        </p>
-        <p className="text-danger/80">+2s: {r.banda_2sigma_superior?.toFixed(6)}</p>
-        <p className="text-danger/80">-2s: {r.banda_2sigma_inferior?.toFixed(6)}</p>
+        <p className="text-dark-textGray">Z-Score EWMA: <span className="font-mono text-white">{r.z_score?.toFixed(4)}</span></p>
+        <p className="text-dark-textGray">Z-Score Ref: <span className="font-mono text-white">{r.z_score_static?.toFixed(4) ?? '--'}</span></p>
+
+        <div className="border-t border-dark-border/40 my-2" />
+
+        {/* ESTADÍSTICO */}
+        <p className="text-[10px] text-dark-textGray/50 uppercase tracking-widest mb-1">Estadístico</p>
+        <p className="text-dark-textGray">Percentil Real: <span className={`font-mono ${percentilColor}`}>{r.percentil_real != null ? `${r.percentil_real.toFixed(1)}%` : '--'}</span></p>
+        {calibracionActiva && (
+          <p className="text-dark-textGray">ν (dist-t): <span className="font-mono text-white">{r.nu_distribucion?.toFixed(1) ?? '--'}</span></p>
+        )}
+        <p className="text-dark-textGray">Vol Ratio: <span className={`font-mono ${volRatioColor}`}>{r.vol_ratio?.toFixed(2) ?? '--'}</span></p>
+
+        <div className="border-t border-dark-border/40 my-2" />
+
+        {/* RÉGIMEN */}
+        <p className="text-[10px] text-dark-textGray/50 uppercase tracking-widest mb-1">Régimen</p>
+        <p className="text-dark-textGray">Régimen: <span className={`font-semibold ${regimenColor}`}>{r.regimen ?? 'DESCONOCIDO'}</span></p>
+        <p className="text-dark-textGray">ER: <span className="font-mono text-white">{r.er?.toFixed(2) ?? '--'}</span></p>
+
+        <div className="border-t border-dark-border/40 my-2" />
+
+        {/* SEÑAL */}
+        <p className="text-[10px] text-dark-textGray/50 uppercase tracking-widest mb-1">Señal</p>
+        {senalSuprimida ? (
+          <p className="text-dark-textGray/60">Filtrada (régimen)</p>
+        ) : (
+          <p className="text-dark-textGray">
+            Señal:{' '}
+            <span className={
+              r.senal === 'COMPRA' ? 'text-success font-semibold' :
+              r.senal === 'VENTA' ? 'text-danger font-semibold' :
+              'text-dark-textGray'
+            }>
+              {(!r.senal || r.senal === 'Sin senal') ? 'Sin señal' : r.senal}
+            </span>
+          </p>
+        )}
+        <p className="text-danger/80">+2σ: {r.banda_2sigma_superior?.toFixed(6)}</p>
+        <p className="text-danger/80">-2σ: {r.banda_2sigma_inferior?.toFixed(6)}</p>
       </div>
     )
   }
