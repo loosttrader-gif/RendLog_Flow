@@ -59,3 +59,30 @@ TIMEFRAME_MAP = {
     "1H": 60,   # mt5.TIMEFRAME_H1
     "4H": 240   # mt5.TIMEFRAME_H4
 }
+
+# ============================================================
+# RENDLOG v3.0 — PARÁMETROS ESTADÍSTICOS
+# ============================================================
+
+# EWMA: factor de decaimiento por timeframe
+# Mayor λ = más persistencia (más lento para olvidar shocks recientes)
+# Menor λ = más reactivo (olvida shocks rápido)
+RENDLOG_LAMBDA_EWMA = {
+    "1M":  0.94,   # Alta frecuencia: shocks se disipan rápido
+    "5M":  0.95,
+    "15M": 0.96,
+    "30M": 0.97,
+    "1H":  0.97,
+    "4H":  0.98    # Baja frecuencia: shocks duran más
+}
+RENDLOG_LAMBDA_DEFAULT = 0.96  # Fallback si timeframe no está en el dict
+
+# Efficiency Ratio: umbrales de régimen de mercado
+# ER < RANGO     → mercado en rango    → RendLog tiene edge
+# ER > TENDENCIA → mercado en tendencia → RendLog sin edge, señal suprimida
+RENDLOG_ER_UMBRAL_RANGO     = 0.30
+RENDLOG_ER_UMBRAL_TENDENCIA = 0.60
+RENDLOG_ER_VENTANA          = 14   # Ventana de velas para calcular ER
+
+# Distribución t: mínimo de retornos válidos para estimar ν
+RENDLOG_NU_MIN_DATOS = 50

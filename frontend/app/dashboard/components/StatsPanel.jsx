@@ -25,13 +25,20 @@ export default function StatsPanel({ latestData, isConnected, selectedTF, timezo
 
       <div className="bg-dark-card rounded-xl border border-dark-border p-5">
         <p className="text-xs text-dark-textGray uppercase tracking-wider mb-1">Senal</p>
-        <p className={`text-2xl font-bold ${
-          senal === 'COMPRA' ? 'text-success' :
-          senal === 'VENTA' ? 'text-danger' :
-          'text-dark-textGray'
-        }`}>
-          {senal || 'Sin senal'}
-        </p>
+        {(rendlog?.senal_suprimida ?? false) ? (
+          <>
+            <p className="text-2xl font-bold text-dark-textGray">—</p>
+            <p className="text-xs text-dark-textGray/50 mt-1">suprimida por régimen</p>
+          </>
+        ) : (
+          <p className={`text-2xl font-bold ${
+            senal === 'COMPRA' ? 'text-success' :
+            senal === 'VENTA' ? 'text-danger' :
+            'text-dark-textGray'
+          }`}>
+            {(!senal || senal === 'Sin senal') ? 'Sin señal' : senal}
+          </p>
+        )}
       </div>
 
       <div className="bg-dark-card rounded-xl border border-dark-border p-5">

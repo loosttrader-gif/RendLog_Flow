@@ -4,3 +4,5 @@ numpy>=1.26.0
 requests>=2.31.0
 python-dotenv>=1.0.0
 pytz>=2023.3
+scipy>=1.11.0
+arch>=6.2.0
