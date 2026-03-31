@@ -4,6 +4,7 @@ import pandas as pd
 from config import (
     RENDLOG_LAMBDA_EWMA,
     RENDLOG_LAMBDA_DEFAULT,
+    RENDLOG_LAMBDA_EWMA_SYMBOL,
     RENDLOG_ER_UMBRAL_RANGO,
     RENDLOG_ER_UMBRAL_TENDENCIA,
     RENDLOG_ER_VENTANA,
@@ -71,7 +72,7 @@ def _calcular_ewma_std(returns_series: pd.Series, lambda_decay: float) -> pd.Ser
     return sigma_series
 
 
-def calcular_bandas_sigma(df, ventana=20, timeframe=None):
+def calcular_bandas_sigma(df, ventana=20, timeframe=None, symbol=None):
     """
     Calcula media móvil y bandas sigma usando EWMA para sigma dinámico.
 
@@ -80,19 +81,27 @@ def calcular_bandas_sigma(df, ventana=20, timeframe=None):
       - Las bandas reflejan la volatilidad ACTUAL, no la histórica promedio
       - Se agrega columna 'std_static' para comparación durante validación
 
+    Cambio v4.1 (multi-par):
+      - Acepta 'symbol' para seleccionar lambda específico del par.
+        Si symbol está en RENDLOG_LAMBDA_EWMA_SYMBOL, usa ese dict;
+        sino, fallback a RENDLOG_LAMBDA_EWMA por timeframe.
+
     Args:
         df:        DataFrame con columna 'log_return'
         ventana:   int — ventana para media móvil (sin cambio)
-        timeframe: str — nombre del timeframe para seleccionar λ correcto
-                         (ej: "30M", "1H"). Si None, usa RENDLOG_LAMBDA_DEFAULT.
+        timeframe: str — nombre del timeframe (ej: "30M", "1H")
+        symbol:    str — nombre del par (ej: "GBPUSD"). None = fallback a EURUSD lambdas.
 
     Returns:
         DataFrame con columnas de bandas actualizadas
     """
     df = df.copy()
 
-    # Seleccionar lambda según timeframe (desde config.py)
-    lambda_decay = RENDLOG_LAMBDA_EWMA.get(timeframe, RENDLOG_LAMBDA_DEFAULT)
+    # Seleccionar lambda: primero por símbolo+timeframe, luego por timeframe solo
+    if symbol and symbol in RENDLOG_LAMBDA_EWMA_SYMBOL:
+        lambda_decay = RENDLOG_LAMBDA_EWMA_SYMBOL[symbol].get(timeframe, RENDLOG_LAMBDA_DEFAULT)
+    else:
+        lambda_decay = RENDLOG_LAMBDA_EWMA.get(timeframe, RENDLOG_LAMBDA_DEFAULT)
 
     # Media móvil — sin cambio respecto a v2.0
     df['media'] = df['log_return'].rolling(window=ventana).mean()
@@ -120,7 +129,7 @@ def calcular_bandas_sigma(df, ventana=20, timeframe=None):
     return df
 
 
-def detectar_anomalias(df, umbral_compra=-2.0, umbral_venta=2.0, nu=None):
+def detectar_anomalias(df, umbral_compra=-2.0, umbral_venta=2.0, nu=None, pca_es_sistemico=False):
     """
     Detecta anomalías basadas en Z-score con sigma EWMA.
 
@@ -179,12 +188,26 @@ def detectar_anomalias(df, umbral_compra=-2.0, umbral_venta=2.0, nu=None):
     er_actual = df['efficiency_ratio'].iloc[-1] if 'efficiency_ratio' in df.columns else np.nan
     regimen   = clasificar_regimen(er_actual)
 
-    # Ajuste de señal según régimen
+    # Ajuste de señal según régimen de mercado (Efficiency Ratio)
     senal_original = señal  # guardar señal pre-filtro
+    senal_suprimida_er  = False
+    senal_suprimida_pca = False
+
     if señal is not None and regimen == "TENDENCIA":
-        señal   = None   # Suprimir señal en tendencia
+        señal   = None
         color   = None
+        senal_suprimida_er = True
         mensaje = f"Senal suprimida: mercado en tendencia (ER={er_actual:.3f}). RendLog sin edge."
+
+    # Supresión adicional por PCA: movimiento sistémico del USD
+    # Si el PCA detecta que PC1 (factor USD) domina, la señal de reversión no aplica
+    if señal is not None and pca_es_sistemico:
+        señal   = None
+        color   = None
+        senal_suprimida_pca = True
+        mensaje = "Senal suprimida: movimiento sistemico USD detectado por PCA."
+
+    senal_suprimida = senal_suprimida_er or senal_suprimida_pca
 
     return {
         # Campos originales — sin cambios de nombre (compatibilidad con main.py)
@@ -211,7 +234,8 @@ def detectar_anomalias(df, umbral_compra=-2.0, umbral_venta=2.0, nu=None):
         'er':                  float(er_actual) if not pd.isna(er_actual) else None,
         'regimen':             regimen,
         'senal_pre_filtro':    senal_original,
-        'senal_suprimida':     senal_original is not None and señal is None,
+        'senal_suprimida':     senal_suprimida,
+        'senal_suprimida_pca': senal_suprimida_pca,
     }
 
 

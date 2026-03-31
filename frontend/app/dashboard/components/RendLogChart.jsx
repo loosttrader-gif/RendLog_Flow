@@ -79,8 +79,10 @@ export default function RendLogChart({ data, timezone }) {
 
         {/* SEÑAL */}
         <p className="text-[10px] text-dark-textGray/50 uppercase tracking-widest mb-1">Señal</p>
-        {senalSuprimida ? (
-          <p className="text-dark-textGray/60">Filtrada (régimen)</p>
+        {r.senal_suprimida_pca ? (
+          <p className="text-warning/80 text-xs font-medium">Suprimida — movimiento sistémico USD (PCA)</p>
+        ) : senalSuprimida ? (
+          <p className="text-dark-textGray/60">Filtrada (régimen ER)</p>
         ) : (
           <p className="text-dark-textGray">
             Señal:{' '}
@@ -95,6 +97,54 @@ export default function RendLogChart({ data, timezone }) {
         )}
         <p className="text-danger/80">+2σ: {r.banda_2sigma_superior?.toFixed(6)}</p>
         <p className="text-danger/80">-2σ: {r.banda_2sigma_inferior?.toFixed(6)}</p>
+
+        {/* GBM MONTE CARLO — solo cuando hay anomalía */}
+        {r.gbm_prob_reversion != null && (
+          <>
+            <div className="border-t border-dark-border/40 my-2" />
+            <p className="text-[10px] text-dark-textGray/50 uppercase tracking-widest mb-1">Monte Carlo GBM</p>
+            <p className="text-dark-textGray">
+              P(reversión):{' '}
+              <span className={`font-mono font-semibold ${
+                r.gbm_prob_reversion > 0.65 ? 'text-success' :
+                r.gbm_prob_reversion > 0.40 ? 'text-warning' :
+                'text-danger'
+              }`}>
+                {(r.gbm_prob_reversion * 100).toFixed(1)}%
+              </span>
+            </p>
+            <p className="text-dark-textGray">
+              Horizonte: <span className="font-mono text-white">{r.gbm_horizonte_velas} velas</span>
+            </p>
+            <p className="text-dark-textGray/60 text-xs">
+              p5: {r.gbm_percentil_5?.toFixed(5)} · p50: {r.gbm_percentil_50?.toFixed(5)} · p95: {r.gbm_percentil_95?.toFixed(5)}
+            </p>
+          </>
+        )}
+
+        {/* PCA SISTÉMICO — siempre cuando hay datos multi-par */}
+        {r.pca_pc1_loading != null && (
+          <>
+            <div className="border-t border-dark-border/40 my-2" />
+            <p className="text-[10px] text-dark-textGray/50 uppercase tracking-widest mb-1">PCA Sistémico</p>
+            <p className="text-dark-textGray">
+              PC1 Loading:{' '}
+              <span className={`font-mono ${r.pca_es_sistemico ? 'text-warning font-semibold' : 'text-white'}`}>
+                {r.pca_pc1_loading?.toFixed(3)}
+              </span>
+            </p>
+            <p className="text-dark-textGray">
+              PC1 Varianza:{' '}
+              <span className="font-mono text-white">{((r.pca_pc1_varianza ?? 0) * 100).toFixed(1)}%</span>
+            </p>
+            {r.pca_es_sistemico && (
+              <p className="text-warning text-xs font-semibold mt-1">⚡ Movimiento sistémico USD</p>
+            )}
+            {r.exposure_usd_alto && !r.pca_es_sistemico && (
+              <p className="text-warning/70 text-xs mt-1">Alta correlación con EURUSD</p>
+            )}
+          </>
+        )}
       </div>
     )
   }

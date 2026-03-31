@@ -2,15 +2,15 @@
 import MetaTrader5 as mt5
 import pandas as pd
 from datetime import datetime
-from config import MT5_LOGIN, MT5_PASSWORD, MT5_SERVER, SYMBOL, BROKER_UTC_OFFSET_HOURS
+from config import MT5_LOGIN, MT5_PASSWORD, MT5_SERVER, SYMBOLS_ACTIVOS, BROKER_UTC_OFFSET_HOURS
 from utils import log_mensaje
 
 def conectar_mt5():
     """
-    Establece conexión con MetaTrader 5
+    Establece conexión con MetaTrader 5 y activa todos los símbolos del clúster.
 
     Returns:
-        bool: True si conexión exitosa, False si falla
+        bool: True si conexión exitosa y todos los símbolos disponibles, False si falla
     """
     try:
         # Inicializar MT5
@@ -29,19 +29,19 @@ def conectar_mt5():
         else:
             log_mensaje("Usando cuenta MT5 activa", "INFO")
 
-        # Verificar símbolo
-        symbol_info = mt5.symbol_info(SYMBOL)
-        if symbol_info is None:
-            log_mensaje(f"Símbolo {SYMBOL} no encontrado", "ERROR")
-            mt5.shutdown()
-            return False
-
-        # Activar símbolo si no está visible
-        if not symbol_info.visible:
-            if not mt5.symbol_select(SYMBOL, True):
-                log_mensaje(f"Error seleccionando símbolo {SYMBOL}", "ERROR")
+        # Verificar y activar todos los símbolos del clúster
+        for sym in SYMBOLS_ACTIVOS:
+            symbol_info = mt5.symbol_info(sym)
+            if symbol_info is None:
+                log_mensaje(f"Símbolo {sym} no encontrado en el broker", "ERROR")
                 mt5.shutdown()
                 return False
+            if not symbol_info.visible:
+                if not mt5.symbol_select(sym, True):
+                    log_mensaje(f"Error seleccionando símbolo {sym}", "ERROR")
+                    mt5.shutdown()
+                    return False
+            log_mensaje(f"Símbolo {sym} verificado y activo", "SUCCESS")
 
         return True
 

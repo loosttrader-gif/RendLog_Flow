@@ -86,3 +86,43 @@ RENDLOG_ER_VENTANA          = 14   # Ventana de velas para calcular ER
 
 # Distribución t: mínimo de retornos válidos para estimar ν
 RENDLOG_NU_MIN_DATOS = 50
+
+# ============================================================
+# MULTI-PAR — Símbolos activos
+# ============================================================
+# Clúster de 4 pares para análisis sistémico USD:
+#   EURUSD → dólar europeo (par base, ancla del PCA)
+#   GBPUSD → libra esterlina (alta correlación con EUR, driver Eurozona)
+#   USDJPY → yen (risk-off / diferenciales de tasas, driver independiente)
+#   USDCAD → dólar canadiense (correlación regional + commodities)
+SYMBOLS_ACTIVOS = ["EURUSD", "GBPUSD", "USDJPY", "USDCAD"]
+
+# EWMA lambda por símbolo (USDJPY tiene mayor vol, decae más rápido)
+RENDLOG_LAMBDA_EWMA_SYMBOL = {
+    "EURUSD": RENDLOG_LAMBDA_EWMA,
+    "GBPUSD": {"1M": 0.94, "5M": 0.95, "15M": 0.96, "30M": 0.97, "1H": 0.97, "4H": 0.98},
+    "USDJPY": {"1M": 0.93, "5M": 0.94, "15M": 0.95, "30M": 0.96, "1H": 0.96, "4H": 0.97},
+    "USDCAD": {"1M": 0.94, "5M": 0.95, "15M": 0.96, "30M": 0.97, "1H": 0.97, "4H": 0.98},
+}
+
+# ============================================================
+# GBM — Movimiento Browniano Geométrico (Monte Carlo)
+# ============================================================
+GBM_N_PATHS = 500                  # Caminos simulados (balance precisión/velocidad)
+GBM_HORIZONTE_VELAS = {            # Horizonte de proyección por timeframe
+    "1M":  20,
+    "5M":  15,
+    "15M": 12,
+    "30M": 10,
+    "1H":  8,
+    "4H":  5,
+}
+GBM_Z_UMBRAL_ACTIVACION = 2.0     # Solo simula cuando |z_score| > este umbral
+
+# ============================================================
+# PCA — Análisis de Componentes Principales
+# ============================================================
+PCA_PC1_VARIANZA_UMBRAL = 0.60    # PC1 explica >60% → movimiento sistémico
+PCA_PC1_LOADING_UMBRAL  = 0.70    # Loading en PC1 >0.70 → par dominado por factor USD
+PCA_CORRELACION_UMBRAL  = 0.85    # Correlación con EURUSD >0.85 → alta exposición USD
+PCA_MIN_FILAS_ALINEADAS = 30      # Mínimo de velas alineadas para PCA válido
