@@ -140,13 +140,14 @@ class SupabaseClient:
             log_mensaje(f"Excepcion eliminando datos: {e}", "ERROR")
             return False
 
-    def delete_oldest_candle(self, timeframe):
+    def delete_oldest_candle(self, timeframe, symbol="EURUSD"):
         """
-        Elimina la vela mas antigua de un timeframe especifico.
+        Elimina la vela mas antigua de un timeframe y símbolo específicos.
         Mantiene la ventana movil de 60 velas.
 
         Args:
-            timeframe: str nombre del timeframe (ej: "1M", "5M")
+            timeframe: str — nombre del timeframe (ej: "1M", "5M")
+            symbol:    str — nombre del par (ej: "EURUSD"). Default EURUSD para backward compat.
 
         Returns:
             bool: True si eliminación exitosa, False si falla
@@ -154,7 +155,8 @@ class SupabaseClient:
         url = f"{self.supabase_url}/rest/v1/rpc/delete_oldest_candle"
         payload = {
             "api_key_param": self.api_key,
-            "timeframe_param": timeframe
+            "timeframe_param": timeframe,
+            "symbol_param": symbol,
         }
 
         try:
